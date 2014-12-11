@@ -1,12 +1,15 @@
 {
   "metadata":{
     "name":"UMons",
-    "user_save_timestamp":"2014-12-11T01:38:06.341Z",
-    "auto_save_timestamp":"2014-12-11T01:41:48.565Z"
+    "user_save_timestamp":"2014-12-11T02:18:20.196Z",
+    "auto_save_timestamp":"2014-12-11T02:17:56.784Z"
   },
   "worksheets":[{
     "cells":[{
       "cell_type":"markdown",
+      "source":"<style>\n  h1, h2, h3, h4, h5, p, ul, li {\n    color: #2C475C;\n  }\n  .output_html {\n        color: skyblue;\n  }\n    hr { height: 2px; color: lightblue; }\n</style>"
+    },{
+      "cell_type":"markdown",
       "source":"# Spark 101"
     },{
       "cell_type":"code",
@@ -36,7 +39,7 @@
       "source":"**MappedRDD** is actually an instance of `RDD[Int]` that will contain the distinct sizes of the lines."
     },{
       "cell_type":"markdown",
-      "source":"_Note_: there is NO computations happening!"
+      "source":"_Note_: there is NO computations happening! → [see UI](http://localhost:4040/stages/)"
     },{
       "cell_type":"markdown",
       "source":"-----"
@@ -65,7 +68,7 @@
       "source":"-----"
     },{
       "cell_type":"markdown",
-      "source":"### We can combine distributed dataset into a single one, by _joining_ them for instance."
+      "source":"### We can combine distributed datasets into single ones, by _joining_ them for instance."
     },{
       "cell_type":"code",
       "input":"val joined = rdd1.join(rdd2)",
@@ -73,6 +76,9 @@
       "collapsed":false,
       "prompt_number":224,
       "outputs":[]
+    },{
+      "cell_type":"markdown",
+      "source":"_Note (again)_: still nothing done on the cluster up to here → [see ui][http://localhost:4040/stages/]"
     },{
       "cell_type":"markdown",
       "source":"-----"
@@ -88,13 +94,16 @@
       "outputs":[]
     },{
       "cell_type":"markdown",
+      "source":"_Note (yeah)_: NOW there were some computations in the cluster → [see stages](http://localhost:4040/stages/) and [see tasks](http://localhost:4040/stages/stage/?id=3&attempt=0)"
+    },{
+      "cell_type":"markdown",
       "source":"------"
     },{
       "cell_type":"markdown",
-      "source":"### But what just happened?"
+      "source":"## But what just happened?"
     },{
       "cell_type":"markdown",
-      "source":"First Spark created a DAG based on the job definition"
+      "source":"### First Spark created a DAG based on the job definition"
     },{
       "cell_type":"code",
       "input":"<pre>{joined.toDebugString}</pre>",
@@ -104,20 +113,16 @@
       "outputs":[]
     },{
       "cell_type":"markdown",
-      "source":"### Then it scheduled it on the cluster (or local CPUs)"
+      "source":"### Then it scheduled it to the executors in the cluster <small>only one when running in local mode<small>"
     },{
-      "cell_type":"code",
-      "input":"import org.apache.spark.ui.notebook.front.widgets.SparkInfo\nnew SparkInfo(sparkContext)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":220,
-      "outputs":[]
+      "cell_type":"markdown",
+      "source":"We can check the <strong>Total tasks</strong> activity in the [UI](http://localhost:4040/executors/)"
     },{
       "cell_type":"markdown",
       "source":"-----"
     },{
       "cell_type":"markdown",
-      "source":"## What if we need to prepare the dataset, then use it several times?"
+      "source":"## Now we will prepare the dataset and then using it several times"
     },{
       "cell_type":"markdown",
       "source":"So we'll read a file about stock price per day, so let's create a type holding relevant data."
@@ -156,7 +161,7 @@
       "input":"def minByDate = byDate.combineByKey[(String, Double)](                                                                                           // `def` to force spark recomputing... otherwise it's smart enough to reuse previous RDDs...\n  (x:Line) => (x.stock, x.price), \n  (d:(String, Double), l:Line) => if (d._2 < l.price) d else (l.stock, l.price),\n  (d1:(String, Double), d2:(String, Double)) => if (d1._2 < d2._2) d1 else d2\n)",
       "language":"scala",
       "collapsed":false,
-      "prompt_number":232,
+      "prompt_number":245,
       "outputs":[]
     },{
       "cell_type":"code",
@@ -183,226 +188,14 @@
       "source":"#### Solution: caching!"
     },{
       "cell_type":"code",
-      "input":"val maxByDate2 = byDate.combineByKey[(String, Double)](\n  (x:Line) => (x.stock, x.price), \n  (d:(String, Double), l:Line) => if (d._2 > l.price) d else (l.stock, l.price),\n  (d1:(String, Double), d2:(String, Double)) => if (d1._2 > d2._2) d1 else d2\n)\nmaxByDate2.cache()                                                                                                               // okay.... not really needed since Spark is smart enough in this case -_-\"",
+      "input":"val maxByDate2 = byDate.combineByKey[(String, Double)](\n  (x:Line) => (x.stock, x.price), \n  (d:(String, Double), l:Line) => if (d._2 > l.price) d else (l.stock, l.price),\n  (d1:(String, Double), d2:(String, Double)) => if (d1._2 > d2._2) d1 else d2\n)\n\nmaxByDate2.cache()                                                                                                               // okay.... not really needed since Spark is smart enough in this case -_-\"",
       "language":"scala",
       "collapsed":false,
       "prompt_number":235,
       "outputs":[]
     },{
-      "cell_type":"code",
-      "input":"<pre>{maxByDate2.take(2).toList.mkString(\"\\n\")}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":236,
-      "outputs":[]
-    },{
       "cell_type":"markdown",
-      "source":"**Go to [UI](http://localhost:4040/storage/)**"
-    },{
-      "cell_type":"code",
-      "input":"<pre>{maxByDate2.take(2).toList.mkString(\"\\n\")}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":237,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"**BLAZING FAST** => Reuses the cache!"
-    },{
-      "cell_type":"code",
-      "input":"",
-      "language":"scala",
-      "collapsed":true,
-      "outputs":[]
-    }]
-  }],
-  "autosaved":[{
-    "cells":[{
-      "cell_type":"markdown",
-      "source":"<style>\n  .text_cell_render {\n    color: blue;\n  }\n</style>\nok"
-    },{
-      "cell_type":"markdown",
-      "source":"# Spark 101"
-    },{
-      "cell_type":"code",
-      "input":"import org.apache.spark._\nimport org.apache.spark.SparkContext._\nimport org.apache.spark.rdd._",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":219,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"### First create a dataset using the local `syslog` file"
-    },{
-      "cell_type":"markdown",
-      "source":"We will \n\n  *  load the file\n  *  convert each line keeping its size\n  *  remove the duplicates\n"
-    },{
-      "cell_type":"markdown",
-      "source":"For that, we'll use the `sparkContext`, which\n \n * is the driver\n * can define job (read inputs, transform, group, etc)\n * constructs DAG\n * schedules tasks on the cluster"
-    },{
-      "cell_type":"code",
-      "input":"val dta:RDD[Int] = sparkContext.textFile(\"/var/log/syslog\")\n                               .map(_.size)\n                               .distinct",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":221,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"**MappedRDD** is actually an instance of `RDD[Int]` that will contain the distinct sizes of the lines."
-    },{
-      "cell_type":"markdown",
-      "source":"_Note_: there is NO computations happening!"
-    },{
-      "cell_type":"markdown",
-      "source":"-----"
-    },{
-      "cell_type":"markdown",
-      "source":"### Now we can use the size for fancy operations like grouping per last digit"
-    },{
-      "cell_type":"code",
-      "input":"val rdd1:RDD[(Int, Iterable[Int])] = dta.groupBy(_ % 10)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":222,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"### But we can also get rid of even sizes (... non trivially...), then _tupling_ with some other computations"
-    },{
-      "cell_type":"code",
-      "input":"val rdd2 = dta.map(_ + 1)\n              .filter(_ % 2 == 0)\n              .map(x => (x%10, x*x))",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":223,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"-----"
-    },{
-      "cell_type":"markdown",
-      "source":"### We can combine distributed dataset into a single one, by _joining_ them for instance."
-    },{
-      "cell_type":"code",
-      "input":"val joined = rdd1.join(rdd2)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":224,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"-----"
-    },{
-      "cell_type":"markdown",
-      "source":"#### Now we ask the cluster to do the whole thing: Action"
-    },{
-      "cell_type":"code",
-      "input":"<pre>{joined.take(10).toList.mkString(\"\\n\")}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":226,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"------"
-    },{
-      "cell_type":"markdown",
-      "source":"### But what just happened?"
-    },{
-      "cell_type":"markdown",
-      "source":"First Spark created a DAG based on the job definition"
-    },{
-      "cell_type":"code",
-      "input":"<pre>{joined.toDebugString}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":227,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"### Then it scheduled it on the cluster (or local CPUs)"
-    },{
-      "cell_type":"code",
-      "input":"import org.apache.spark.ui.notebook.front.widgets.SparkInfo\nnew SparkInfo(sparkContext)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":220,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"-----"
-    },{
-      "cell_type":"markdown",
-      "source":"## What if we need to prepare the dataset, then use it several times?"
-    },{
-      "cell_type":"markdown",
-      "source":"So we'll read a file about stock price per day, so let's create a type holding relevant data."
-    },{
-      "cell_type":"code",
-      "input":"case class Line(stock:String, date:String, price:Double) extends java.io.Serializable",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":228,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"The file will contain lines like:\n ```\n ASTE,2011-12-06,33.93\n ASTE,2012-03-14,36.84\n ``` "
-    },{
-      "cell_type":"code",
-      "input":"val closes:RDD[Line] = sparkContext.textFile(\"/home/noootsab/data/closes.csv\")\n                                   .map(_.split(\",\").toList)\n                                   .map{ case s::d::p::Nil => Line(s, d, p.toDouble)}",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":229,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"We have date, so we can group stock prices per day"
-    },{
-      "cell_type":"code",
-      "input":"val byDate = closes.keyBy(_.date)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":230,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"Now we can compute the minimum stocks per date"
-    },{
-      "cell_type":"code",
-      "input":"def minByDate = byDate.combineByKey[(String, Double)](                                                                                           // `def` to force spark recomputing... otherwise it's smart enough to reuse previous RDDs...\n  (x:Line) => (x.stock, x.price), \n  (d:(String, Double), l:Line) => if (d._2 < l.price) d else (l.stock, l.price),\n  (d1:(String, Double), d2:(String, Double)) => if (d1._2 < d2._2) d1 else d2\n)",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":232,
-      "outputs":[]
-    },{
-      "cell_type":"code",
-      "input":"<pre>{minByDate.take(2).toList.mkString(\"\\n\")}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":233,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"It took ~2 second (in local[8] and 24G of RAM)"
-    },{
-      "cell_type":"code",
-      "input":"<pre>{minByDate.take(2).toList.mkString(\"\\n\")}</pre>",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":234,
-      "outputs":[]
-    },{
-      "cell_type":"markdown",
-      "source":"Once again.... 2 seconds!!!"
-    },{
-      "cell_type":"markdown",
-      "source":"#### Solution: caching!"
-    },{
-      "cell_type":"code",
-      "input":"val maxByDate2 = byDate.combineByKey[(String, Double)](\n  (x:Line) => (x.stock, x.price), \n  (d:(String, Double), l:Line) => if (d._2 > l.price) d else (l.stock, l.price),\n  (d1:(String, Double), d2:(String, Double)) => if (d1._2 > d2._2) d1 else d2\n)\nmaxByDate2.cache()                                                                                                               // okay.... not really needed since Spark is smart enough in this case -_-\"",
-      "language":"scala",
-      "collapsed":false,
-      "prompt_number":235,
-      "outputs":[]
+      "source":"Ask some data"
     },{
       "cell_type":"code",
       "input":"<pre>{maxByDate2.take(2).toList.mkString(\"\\n\")}</pre>",
@@ -425,5 +218,6 @@
       "source":"**BLAZING FAST** => Reuses the cache!"
     }]
   }],
+  "autosaved":[],
   "nbformat":3
 }
